@@ -20,6 +20,7 @@ import { AuthError } from "./errors.ts";
 import type { APIClient } from "@d8d-appcontainer/api";
 import { DbService } from "../services/db.ts";
 import { SessionService } from "../services/session.ts";
+import { SmsService } from "../services/sms.ts";
 // import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 const { sign, verify } = jwt;
@@ -50,6 +51,7 @@ export class Auth {
   private key!: string;
   private dbService: DbService;
   private sessionService: SessionService;
+  private smsService: SmsService;
 
   constructor(
     private client: APIClient,
@@ -72,6 +74,7 @@ export class Auth {
       fieldNames
     );
     this.sessionService = new SessionService(client, this.config.storagePrefix);
+    this.smsService = new SmsService(client, this.config.storagePrefix);
     this.initializeKey().catch(error => {
       throw new AuthError("密钥初始化失败: " + error.message);
     });
@@ -566,36 +569,7 @@ export class Auth {
   // 短信相关方法
   async canSendSmsCode(phone: string, type: string): Promise<SmsCodeResult> {
     try {
-      // 检查手机号是否被封禁
-      const isBlocked = await this.client.database.table('sms_blacklist')
-        .where('phone', phone)
-        .where('expired_at', '>', this.client.database.fn.now())
-        .first();
-
-      if (isBlocked) {
-        return {
-          allowed: false,
-          message: "该手机号已被封禁",
-          remainingSeconds: Math.floor((new Date(isBlocked.expired_at).getTime() - Date.now()) / 1000)
-        };
-      }
-
-      // 检查发送频率
-      const lastSent = await this.client.database.table('sms_logs')
-        .where('phone', phone)
-        .where('type', type)
-        .where('created_at', '>', this.client.database.raw('NOW() - INTERVAL 1 MINUTE')) // 1分钟内
-        .first();
-
-      if (lastSent) {
-        return {
-          allowed: false,
-          message: "发送过于频繁，请稍后再试",
-          remainingSeconds: 60 - Math.floor((Date.now() - new Date(lastSent.created_at).getTime()) / 1000)
-        };
-      }
-
-      return { allowed: true };
+      return await this.smsService.canSendSms(phone, type);
     } catch (error) {
       console.error('检查短信发送权限失败:', error);
       throw new AuthError("检查短信发送权限失败");
@@ -604,20 +578,7 @@ export class Auth {
 
   async storeSmsCode(phone: string, code: string, type: string, expiresAt: Date): Promise<void> {
     try {
-      await this.client.database.table('sms_codes').insert({
-        phone,
-        code,
-        type,
-        expires_at: expiresAt,
-        created_at: this.client.database.fn.now()
-      });
-
-      // 记录发送日志
-      await this.client.database.table('sms_logs').insert({
-        phone,
-        type,
-        created_at: this.client.database.fn.now()
-      });
+      await this.smsService.storeSmsCode(phone, code, type, expiresAt);
     } catch (error) {
       console.error('存储短信验证码失败:', error);
       throw new AuthError("存储短信验证码失败");
@@ -639,13 +600,8 @@ export class Auth {
   async smsLogin(phone: string, code: string): Promise<MemberAuthResult> {
     try {
       // 验证短信验证码
-      const validCode = await this.client.database.table('sms_codes')
-        .where('phone', phone)
-        .where('code', code)
-        .where('expires_at', '>', this.client.database.fn.now())
-        .first();
-
-      if (!validCode) {
+      const isValid = await this.smsService.validateSmsCode(phone, code, 'login');
+      if (!isValid) {
         throw new AuthError("验证码无效或已过期");
       }
 
@@ -675,11 +631,6 @@ export class Auth {
         lastActivityAt: new Date(),
         user
       }, this.config.tokenExpiry);
-
-      // 删除已使用的验证码
-      await this.client.database.table('sms_codes')
-        .where('id', validCode.id)
-        .delete();
 
       return { token, user, refreshToken, sessionId };
     } catch (error) {

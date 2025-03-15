@@ -3,6 +3,9 @@ import { Auth } from "../src/core/auth.ts";
 import { AuthError } from "../src/core/errors.ts";
 import type { APIClient } from "@d8d-appcontainer/api";
 import { TEST_CONFIG, getTestClient } from "./test-utils.ts";
+import debug from "https://esm.sh/debug@4.4.0";
+
+const log = debug('auth:test');
 
 Deno.test('Third Party Auth Tests', async () => {
   const client = await getTestClient();
@@ -32,18 +35,38 @@ async function testSmsLogin(auth: Auth) {
   const phone = "13800138000";
   const code = "123456";
   
+  log('开始测试短信登录流程');
+  
+  // 检查发送权限
+  const canSend = await auth.canSendSmsCode(phone, "login");
+  log(`检查发送权限结果: ${JSON.stringify(canSend)}`);
+  assertEquals(canSend.allowed, true);
+  
   // 存储验证码
-  await auth.storeSmsCode(phone, code, "login", new Date(Date.now() + 300000));
+  const expiresAt = new Date(Date.now() + 300000); // 5分钟后过期
+  log(`存储验证码，过期时间: ${expiresAt}`);
+  await auth.storeSmsCode(phone, code, "login", expiresAt);
   
   // 使用短信验证码登录
+  log('尝试使用验证码登录');
   const result = await auth.smsLogin(phone, code);
+  log(`登录结果: ${JSON.stringify(result)}`);
   assertEquals(result.user.phone, phone);
   assertNotEquals(result.token, undefined);
   assertNotEquals(result.refreshToken, undefined);
 
   // 使用错误的验证码
+  log('测试使用错误的验证码');
   await assertRejects(
     () => auth.smsLogin(phone, "wrong_code"),
+    AuthError,
+    "验证码无效或已过期"
+  );
+
+  // 验证码已使用，再次使用应该失败
+  log('测试重复使用已使用的验证码');
+  await assertRejects(
+    () => auth.smsLogin(phone, code),
     AuthError,
     "验证码无效或已过期"
   );
@@ -92,11 +115,7 @@ async function cleanupTestData(client: APIClient) {
   // 删除测试表
   const tables = [
     `${prefix}_users`,
-    `${prefix}_sessions`,
-    `${prefix}_refresh_tokens`,
-    `${prefix}_sms_codes`,
-    `${prefix}_sms_logs`,
-    `${prefix}_sms_blacklist`
+    `${prefix}_sessions`
   ];
 
   // 删除所有表
@@ -105,5 +124,11 @@ async function cleanupTestData(client: APIClient) {
     if (exists) {
       await schema.dropTable(table);
     }
+  }
+
+  // 清理 Redis 数据
+  const redisKeys = await client.redis.keys(`${prefix}_*`);
+  for (const key of redisKeys) {
+    await client.redis.del(key);
   }
 }
