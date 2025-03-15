@@ -4,6 +4,8 @@
   "description": "D8D AppContainer Auth",
   "exports": "./src/mod.ts",
   "imports": {
+    "@d8d-appcontainer/api": "npm:@d8d-appcontainer/api@3.0.40",
+    "@d8d-appcontainer/types": "npm:@d8d-appcontainer/types@3.0.40",
     "jsonwebtoken": "https://esm.sh/jsonwebtoken@9.0.2",
     "nanoid": "https://esm.sh/nanoid@5.1.2"
   },
