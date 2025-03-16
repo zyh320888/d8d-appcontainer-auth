@@ -15,7 +15,7 @@ await build({
   },
   package: {
     name: "@d8d-appcontainer/auth",
-    version: "0.0.12",
+    version: "0.0.13",
     description: "D8D AppContainer Auth Client",
     license: "MIT",
     repository: {
@@ -26,7 +26,7 @@ await build({
       url: "https://github.com/d8d-appcontainer/d8d-appcontainer/issues",
     },
     dependencies: {
-      "@d8d-appcontainer/api": "^3.0.34",
+      "@d8d-appcontainer/api": "^3.0.42",
       "jsonwebtoken": "^9.0.2",
       "nanoid": "^5.1.2"
     },

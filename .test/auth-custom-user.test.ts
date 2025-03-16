@@ -72,19 +72,14 @@ async function initCustomUserTable(client: APIClient) {
     table.timestamps(true, true);
   });
 
-  // 插入测试用户数据
-  log('插入测试用户数据');
-  await client.database.table(tableName).insert({
-    account: 'testuser',
-    pwd: 'password123',
-    mobile: '13900139000',
-    mail: 'test@example.com',
-    company_id: 1,
-    department: '技术部',
-    position: '工程师',
-    status: 0,
-    is_deleted: 0,
-    is_disabled: 0
+  // 创建测试用户
+  log('创建测试用户');
+  const auth = new Auth(client, CUSTOM_CONFIG);
+  await auth.createUser({
+    username: 'testuser',
+    password: 'password123',
+    phone: '13900139000',
+    email: 'test@example.com'
   });
 }
 
