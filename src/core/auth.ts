@@ -582,12 +582,31 @@ export class Auth {
     }
   }
 
+  // 邮箱验证码相关方法
+  async canSendEmailCode(email: string, type: string): Promise<SmsCodeResult> {
+    try {
+      return await this.smsService.canSendSms(email, type);
+    } catch (error) {
+      console.error('检查邮箱验证码发送权限失败:', error);
+      throw new AuthError("检查邮箱验证码发送权限失败");
+    }
+  }
+
   async storeSmsCode(phone: string, code: string, type: string, expiresAt: Date): Promise<void> {
     try {
       await this.smsService.storeSmsCode(phone, code, type, expiresAt);
     } catch (error) {
       console.error('存储短信验证码失败:', error);
       throw new AuthError("存储短信验证码失败");
+    }
+  }
+
+  async storeEmailCode(email: string, code: string, type: string, expiresAt: Date): Promise<void> {
+    try {
+      await this.smsService.storeSmsCode(email, code, type, expiresAt);
+    } catch (error) {
+      console.error('存储邮箱验证码失败:', error);
+      throw new AuthError("存储邮箱验证码失败");
     }
   }
 
@@ -599,6 +618,16 @@ export class Auth {
     } catch (error) {
       console.error('发送短信失败:', error);
       throw new AuthError("发送短信失败");
+    }
+  }
+
+  async sendEmail(email: string, content: string): Promise<void> {
+    try {
+      // 调用邮件服务发送验证码
+      // await this.client.email.send(email, content);
+    } catch (error) {
+      console.error('发送邮件失败:', error);
+      throw new AuthError("发送邮件失败");
     }
   }
 
@@ -757,6 +786,47 @@ export class Auth {
     } catch (error) {
       console.error('微信小程序登录失败:', error);
       throw error instanceof AuthError ? error : new AuthError("微信小程序登录失败");
+    }
+  }
+
+  async emailLogin(email: string, code: string): Promise<MemberAuthResult> {
+    try {
+      // 验证邮箱验证码
+      const isValid = await this.smsService.validateSmsCode(email, code, 'login');
+      if (!isValid) {
+        throw new AuthError("验证码无效或已过期");
+      }
+
+      // 查找或创建用户
+      let dbUser = await this.dbService.findUserByEmail(email);
+      if (!dbUser) {
+        dbUser = await this.dbService.createUser({
+          email,
+          username: email,
+        });
+      }
+
+      // 生成会话信息
+      const sessionId = nanoid();
+      const user = this.toApiUser(dbUser);
+      const token = await this.createToken(user, sessionId);
+      const refreshToken = await this.createRefreshToken(String(dbUser.id), sessionId);
+
+      // 保存会话
+      await this.sessionService.saveSession({
+        userId: String(dbUser.id),
+        sessionId,
+        token,
+        refreshToken,
+        createdAt: new Date(),
+        lastActivityAt: new Date(),
+        user
+      }, this.config.tokenExpiry);
+
+      return { token, user, refreshToken, sessionId };
+    } catch (error) {
+      console.error('邮箱登录失败:', error);
+      throw error instanceof AuthError ? error : new AuthError("邮箱登录失败");
     }
   }
 }

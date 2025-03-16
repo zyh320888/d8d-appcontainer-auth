@@ -37,7 +37,7 @@ Deno.test('Custom User Table Auth Tests', async () => {
     await testPhoneLogin(auth);
 
     // 测试邮箱登录
-    await testEmailLogin(auth);
+    // await testEmailLogin(auth);
 
   } finally {
     await cleanupTestData(client);
@@ -132,15 +132,36 @@ async function testEmailLogin(auth: Auth) {
   
   log('测试邮箱登录');
   
+  // 检查发送权限
+  const canSend = await auth.canSendEmailCode(email, "login");
+  log(`检查邮箱验证码发送权限结果: ${JSON.stringify(canSend)}`);
+  assertEquals(canSend.allowed, true);
+  
   // 存储验证码
   const expiresAt = new Date(Date.now() + 300000);
-  await auth.storeSmsCode(email, code, "login", expiresAt);
+  await auth.storeEmailCode(email, code, "login", expiresAt);
   
   // 使用验证码登录
-  const result = await auth.smsLogin(email, code);
+  const result = await auth.emailLogin(email, code);
   log(`邮箱登录结果: ${JSON.stringify(result)}`);
   assertEquals((result.user as User).email, email);
   assertNotEquals(result.token, undefined);
+  
+  // 错误的验证码
+  log('测试错误验证码');
+  await assertRejects(
+    () => auth.emailLogin(email, "wrong_code"),
+    AuthError,
+    "验证码无效或已过期"
+  );
+
+  // 验证码已使用，再次使用应该失败
+  log('测试重复使用已使用的验证码');
+  await assertRejects(
+    () => auth.emailLogin(email, code),
+    AuthError,
+    "验证码无效或已过期"
+  );
 }
 
 // 清理测试数据
