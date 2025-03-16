@@ -9,12 +9,13 @@ export class DbService {
   constructor(
     private client: APIClient,
     prefix: string = 'auth',
-    fieldNames: Partial<FieldNames> = {}
+    fieldNames: Partial<FieldNames> = {},
+    customTableName?: string
   ) {
     if (!prefix) {
       prefix = 'auth';
     }
-    this.tableName = `${prefix}_users`;
+    this.tableName = customTableName || `${prefix}_users`;
     this.fieldNames = {
       id: fieldNames.id || 'id',
       username: fieldNames.username || 'username',

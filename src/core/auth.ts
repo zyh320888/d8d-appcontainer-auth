@@ -71,7 +71,8 @@ export class Auth {
     this.dbService = new DbService(
       client,
       this.config.storagePrefix,
-      fieldNames
+      fieldNames,
+      config.userTable
     );
     this.sessionService = new SessionService(client, this.config.storagePrefix);
     this.smsService = new SmsService(client, this.config.storagePrefix);
@@ -106,6 +107,11 @@ export class Auth {
     };
   }
 
+  /**
+   * 初始化默认用户和数据库表结构
+   * 当userTable参数为空时，才需要创建用户表和角色表，并初始化默认用户。  
+   * 
+   */
   async initialize(): Promise<void> {
     try {
       // 初始化数据库表结构

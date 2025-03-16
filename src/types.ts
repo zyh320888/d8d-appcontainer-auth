@@ -90,23 +90,40 @@ export interface FieldNames {
 }
 
 export interface AuthConfig {
+  /** JWT 密钥  */
   jwtSecret: string;
+  /** JWT 过期时间（秒） */
   tokenExpiry?: number;
+  /** 刷新令牌过期时间（秒） */
   refreshTokenExpiry?: number;
+  /** 初始用户列表 */
   initialUsers?: CreateUserInput[];
+  /** 单一会话模式 */
   singleSession?: boolean;
+  /** 存储前缀 */
   storagePrefix?: string;
+  /** 自定义用户表名 */
+  userTable?: string;
+  /** 自定义字段名映射 */
+  fieldNames?: Partial<FieldNames>;
+  /** 角色表配置 */
   roleConfig?: {
+    /** 自定义角色表名  */
     roleTable: string;
+    /** 自定义菜单表名  */
     menuTable: string;
+    /** 自定义角色ID字段名 */
     roleIdField: string;
+    /** 自定义菜单ID字段名 */
     menuIdsField: string;
   };
+  /** 部门表配置 */
   departmentConfig?: {
+    /** 自定义部门表名  */
     departmentTable: string;
+    /** 自定义部门ID字段名 */
     departmentIdField: string;
   };
-  fieldNames?: Partial<FieldNames>;
 }
 
 export interface SessionInfo {
