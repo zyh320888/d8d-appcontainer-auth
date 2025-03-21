@@ -614,7 +614,7 @@ export class Auth {
     try {
       // 调用短信服务发送验证码
       // 这里需要根据实际使用的短信服务进行实现
-      await this.client.sms.send(phone, content);
+      await this.client.sms.sendVerificationCode(phone, content);
     } catch (error) {
       console.error('发送短信失败:', error);
       throw new AuthError("发送短信失败");
